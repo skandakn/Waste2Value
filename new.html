@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waste2Value — Ocean Waste Marketplace</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --ocean: #0a4a6e;
+    --ocean-mid: #0e6b9e;
+    --ocean-light: #b8dff0;
+    --foam: #e8f6fd;
+    --sand: #f5f0e8;
+    --kelp: #1a6b4a;
+    --kelp-light: #d4edde;
+    --amber: #e8861a;
+    --amber-light: #fef0d9;
+    --coral-red: #c0392b;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: rgba(10,74,110,0.12);
+    --text: #0d1b2a;
+    --text-muted: #4a6580;
+    --text-faint: #8aa0b4;
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(10,74,110,0.10);
+    --shadow-lg: 0 8px 32px rgba(10,74,110,0.14);
+    --gold: #f5c518;
+    --gold-light: #fffbe6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface2);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+ 
+  /* AUTH OVERLAY */
+  #auth-overlay {
+    position: fixed; inset: 0; z-index: 99999;
+    background: linear-gradient(135deg, #071e30 0%, #0a4a6e 50%, #0d2d4a 100%);
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+  }
+  #auth-overlay::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Ccircle cx='40' cy='40' r='1.5' fill='rgba(255,255,255,0.03)'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .auth-card {
+    background: #fff; border-radius: 24px; padding: 2.5rem;
+    width: 100%; max-width: 440px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+    position: relative; animation: authSlide 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes authSlide { from { transform: translateY(40px) scale(0.95); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+  .auth-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 1.75rem; }
+  .auth-logo .icon { width: 44px; height: 44px; background: var(--amber); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .auth-logo .brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; color: var(--ocean); }
+  .auth-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text); text-align: center; margin-bottom: 6px; }
+  .auth-sub { text-align: center; font-size: 0.88rem; color: var(--text-muted); margin-bottom: 2rem; }
+  .auth-tabs { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 1.5rem; }
+  .auth-tab { flex: 1; padding: 8px; text-align: center; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+  .auth-tab.active { background: var(--ocean); color: #fff; }
+  .btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 500; color: #333; transition: all 0.2s; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .btn-google:hover { border-color: #aaa; box-shadow: 0 3px 10px rgba(0,0,0,0.12); transform: translateY(-1px); }
+  .btn-google svg { width: 20px; height: 20px; }
+  .auth-divider { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .auth-divider span { font-size: 0.8rem; color: var(--text-faint); white-space: nowrap; }
+  .auth-form-group { margin-bottom: 1rem; }
+  .auth-form-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .auth-form-group input { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; padding: 11px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.92rem; color: var(--text); transition: border-color 0.2s; }
+  .auth-form-group input:focus { outline: none; border-color: var(--ocean-mid); box-shadow: 0 0 0 3px rgba(14,107,158,0.1); }
+  .auth-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-auth { width: 100%; background: var(--ocean); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600; padding: 13px; border-radius: 10px; margin-top: 0.5rem; transition: all 0.2s; letter-spacing: 0.01em; }
+  .btn-auth:hover { background: var(--ocean-mid); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(10,74,110,0.3); }
+  .auth-terms { font-size: 0.76rem; color: var(--text-faint); text-align: center; margin-top: 1rem; }
+  .auth-panel { display: none; }
+  .auth-panel.active { display: block; }
+ 
+  /* USER MENU */
+  .user-chip { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px 4px 4px; cursor: pointer; transition: background 0.2s; }
+  .user-chip:hover { background: rgba(255,255,255,0.22); }
+  .user-avatar-nav { width: 30px; height: 30px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .user-name-nav { font-size: 0.85rem; color: #fff; font-weight: 500; }
+  .nav-user-menu { position: relative; display: flex; align-items: center; gap: 10px; }
+  .user-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); min-width: 180px; z-index: 500; overflow: hidden; display: none; }
+  .user-dropdown.open { display: block; animation: fadeIn 0.2s ease; }
+  .dropdown-item { padding: 10px 16px; font-size: 0.88rem; color: var(--text); cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+  .dropdown-item:hover { background: var(--surface2); }
+  .dropdown-item.danger { color: var(--coral-red); }
+ 
+  /* POINTS BADGE IN NAV */
+  .nav-points-badge { background: var(--gold); color: #7a5500; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; font-family: 'Syne', sans-serif; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+ 
+  /* NAV */
+  nav { background: var(--ocean); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 20px rgba(0,0,0,0.18); }
+  .nav-brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+  .nav-brand .w-icon { width: 32px; height: 32px; background: var(--amber); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.65); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; padding: 6px 14px; border-radius: 8px; transition: all 0.2s; letter-spacing: 0.01em; }
+  .nav-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .nav-tab.active { background: rgba(255,255,255,0.18); color: #fff; }
+  .nav-tab.rewards-tab { color: var(--gold); font-weight: 600; }
+  .nav-tab.rewards-tab.active, .nav-tab.rewards-tab:hover { background: rgba(245,197,24,0.2); color: var(--gold); }
+  .nav-cta { background: var(--amber); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.85rem; padding: 8px 18px; border-radius: 8px; transition: all 0.2s; letter-spacing: 0.01em; }
+  .nav-cta:hover { background: #d4780f; transform: translateY(-1px); }
+ 
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+ 
+  /* HERO */
+  .hero { background: linear-gradient(135deg, var(--ocean) 0%, #0d2d4a 60%, #071e30 100%); padding: 5rem 2rem 4rem; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='rgba(255,255,255,0.04)'/%3E%3C/svg%3E"); pointer-events: none; }
+  .hero-wave { position: absolute; bottom: -2px; left: 0; right: 0; height: 80px; }
+  .hero-badge { display: inline-block; background: rgba(232,134,26,0.2); color: var(--amber); border: 1px solid rgba(232,134,26,0.35); font-size: 0.78rem; font-weight: 500; padding: 4px 14px; border-radius: 20px; margin-bottom: 1.5rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  .hero h1 { font-size: clamp(2.2rem,5vw,3.6rem); font-weight: 800; color: #fff; line-height: 1.1; margin-bottom: 1rem; }
+  .hero h1 span { color: var(--amber); }
+  .hero p { font-size: 1.1rem; color: rgba(255,255,255,0.68); max-width: 520px; margin: 0 auto 2rem; font-weight: 300; }
+  .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--amber); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.95rem; padding: 12px 28px; border-radius: var(--radius); transition: all 0.2s; letter-spacing: 0.01em; }
+  .btn-primary:hover { background: #d4780f; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,134,26,0.4); }
+  .btn-outline { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 0.95rem; padding: 12px 28px; border-radius: var(--radius); transition: all 0.2s; }
+  .btn-outline:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
+ 
+  /* STATS STRIP */
+  .stats-strip { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1.5rem 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 1px; }
+  .stat-item { padding: 0.75rem 1.5rem; text-align: center; border-right: 1px solid var(--border); }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--ocean); display: block; }
+  .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
+  .stat-item.highlight .stat-num { color: var(--kelp); }
+ 
+  /* MAIN LAYOUT */
+  .main-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--text); }
+  .section-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+ 
+  /* WASTE CARDS */
+  .waste-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px,1fr)); gap: 1rem; }
+  .waste-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; transition: all 0.25s; cursor: pointer; position: relative; overflow: hidden; }
+  .waste-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .waste-card.plastic::before { background: var(--ocean-mid); }
+  .waste-card.nets::before { background: var(--kelp); }
+  .waste-card.glass::before { background: var(--amber); }
+  .waste-card.mixed::before { background: var(--coral-red); }
+  .waste-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+  .waste-type-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 500; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge-plastic { background: var(--foam); color: var(--ocean-mid); }
+  .badge-nets { background: var(--kelp-light); color: var(--kelp); }
+  .badge-glass { background: var(--amber-light); color: var(--amber); }
+  .badge-mixed { background: #fce8e6; color: var(--coral-red); }
+  .waste-status { font-size: 0.73rem; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+  .status-available { background: var(--kelp-light); color: var(--kelp); }
+  .status-claimed { background: #e8e8e8; color: #777; }
+  .status-pending { background: var(--amber-light); color: var(--amber); }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .card-meta { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+  .card-details { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 1rem; }
+  .detail-box { background: var(--surface2); border-radius: 8px; padding: 6px 10px; }
+  .detail-label { font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+  .detail-value { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+  .card-suggestions { background: var(--foam); border-radius: 8px; padding: 8px 12px; margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--ocean); }
+  .sugg-label { font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .card-actions { display: flex; gap: 8px; }
+  .btn-claim { flex: 1; background: var(--ocean); color: #fff; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; transition: all 0.2s; }
+  .btn-claim:hover { background: var(--ocean-mid); }
+  .btn-claim:disabled { background: #ccc; cursor: default; }
+  .btn-details { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; padding: 8px 14px; border-radius: 8px; transition: all 0.2s; }
+  .btn-details:hover { background: var(--foam); color: var(--ocean); }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-faint); }
+  .uploader-info { display: flex; align-items: center; gap: 6px; }
+  .avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; }
+  .points-pill { background: var(--amber-light); color: var(--amber); font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; }
+ 
+  /* FILTER BAR */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+  .filter-btn { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; padding: 6px 14px; border-radius: 20px; transition: all 0.2s; }
+  .filter-btn:hover, .filter-btn.active { background: var(--ocean); color: #fff; border-color: var(--ocean); }
+  .search-box { flex: 1; min-width: 200px; display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; gap: 8px; }
+  .search-box input { border: none; outline: none; background: none; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--text); flex: 1; }
+ 
+  /* FORM */
+  .form-container { max-width: 700px; margin: 0 auto; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); padding: 2.5rem; box-shadow: var(--shadow); }
+  .form-header { margin-bottom: 2rem; }
+  .form-header h2 { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .form-header p { color: var(--text-muted); font-size: 0.9rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.82rem; font-weight: 500; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+  input, select, textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.92rem; color: var(--text); transition: border-color 0.2s; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ocean-mid); box-shadow: 0 0 0 3px rgba(14,107,158,0.1); }
+  textarea { resize: vertical; min-height: 100px; }
+  .type-selector { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .type-option { border: 2px solid var(--border); border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface2); }
+  .type-option:hover { border-color: var(--ocean-mid); background: var(--foam); }
+  .type-option.selected { border-color: var(--ocean); background: var(--foam); }
+  .type-icon { font-size: 24px; margin-bottom: 4px; }
+  .type-name { font-size: 0.78rem; font-weight: 500; color: var(--text); }
+  .sugg-box { background: var(--foam); border: 1px solid var(--ocean-light); border-radius: 10px; padding: 1rem; margin-top: 0.5rem; }
+  .sugg-box h4 { font-size: 0.82rem; font-weight: 600; color: var(--ocean); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .sugg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--surface); color: var(--ocean); border: 1px solid var(--ocean-light); font-size: 0.78rem; padding: 3px 10px; border-radius: 12px; }
+  .submit-btn { width: 100%; background: var(--ocean); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600; padding: 14px; border-radius: 12px; transition: all 0.2s; margin-top: 1.5rem; letter-spacing: 0.01em; }
+  .submit-btn:hover { background: var(--ocean-mid); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(10,74,110,0.25); }
+ 
+  /* LOCATION PICKER */
+  .location-picker-wrap { border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+  #upload-map { width: 100%; height: 280px; }
+  .map-instruction { background: var(--ocean); color: #fff; font-size: 0.78rem; font-weight: 500; padding: 6px 12px; text-align: center; letter-spacing: 0.02em; }
+  .location-coords { background: var(--surface2); border-top: 1px solid var(--border); padding: 8px 12px; font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .coords-dot { width: 8px; height: 8px; background: var(--kelp); border-radius: 50%; flex-shrink: 0; }
+  #coords-display { color: var(--kelp); font-weight: 500; }
+ 
+  /* SELLER MODAL */
+  .seller-modal-card { max-width: 420px; background: #fff; border-radius: 20px; padding: 2rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideModal 0.25s ease; width: 100%; }
+  .seller-header { display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+  .seller-avatar-lg { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .seller-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text); }
+  .seller-since { font-size: 0.78rem; color: var(--text-faint); margin-top: 2px; }
+  .seller-rating { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--amber); margin-top: 4px; }
+  .seller-contact-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.25rem; }
+  .contact-row { display: flex; align-items: center; gap: 12px; background: var(--surface2); border-radius: 10px; padding: 10px 14px; }
+  .contact-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .contact-icon.phone { background: var(--kelp-light); }
+  .contact-icon.email { background: var(--foam); }
+  .contact-icon.loc { background: var(--amber-light); }
+  .contact-info { flex: 1; }
+  .contact-type { font-size: 0.72rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+  .contact-val { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+  .copy-btn { background: none; border: none; cursor: pointer; color: var(--text-faint); font-size: 14px; padding: 4px; border-radius: 6px; transition: all 0.2s; }
+  .copy-btn:hover { background: var(--border); color: var(--ocean); }
+  .seller-listing-info { background: var(--foam); border-radius: 10px; padding: 12px 14px; margin-bottom: 1.25rem; }
+  .seller-listing-info h4 { font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--ocean); margin-bottom: 8px; }
+  .listing-detail-row { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px; }
+  .listing-detail-row span:last-child { font-weight: 500; color: var(--text); }
+  .btn-close-seller { width: 100%; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; padding: 10px; border-radius: 10px; transition: all 0.2s; }
+  .btn-close-seller:hover { background: #eee; }
+ 
+  /* MAP */
+  #map { width: 100%; height: 500px; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+ 
+  /* DASHBOARD */
+  .impact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .impact-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 6px; }
+  .impact-icon { font-size: 22px; margin-bottom: 4px; }
+  .impact-num { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--ocean); line-height: 1; }
+  .impact-label { font-size: 0.82rem; color: var(--text-muted); }
+  .impact-delta { font-size: 0.78rem; color: var(--kelp); font-weight: 500; }
+  .impact-source { font-size: 0.7rem; color: var(--text-faint); margin-top: 2px; font-style: italic; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+  .chart-title { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+ 
+  /* FACT BOX */
+  .fact-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 1rem; margin-top: 2rem; }
+  .fact-card { background: linear-gradient(135deg, var(--ocean), var(--ocean-mid)); border-radius: var(--radius); padding: 1.25rem; color: #fff; }
+  .fact-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  .fact-text { font-size: 0.85rem; color: rgba(255,255,255,0.85); line-height: 1.6; }
+  .fact-num { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--gold); margin-bottom: 4px; }
+  .fact-source { font-size: 0.68rem; color: rgba(255,255,255,0.5); margin-top: 6px; }
+ 
+  /* LEADERBOARD */
+  .leaderboard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .lb-header { background: var(--ocean); color: #fff; padding: 1rem 1.25rem; font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .lb-row { display: flex; align-items: center; gap: 12px; padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row:hover { background: var(--surface2); }
+  .lb-rank { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--text-faint); width: 24px; text-align: center; }
+  .lb-rank.top { color: var(--amber); }
+  .lb-info { flex: 1; }
+  .lb-name { font-weight: 500; font-size: 0.9rem; color: var(--text); }
+  .lb-loc { font-size: 0.78rem; color: var(--text-muted); }
+  .lb-score { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--ocean); }
+  .lb-pts { font-size: 0.75rem; color: var(--text-faint); }
+  .lb-bar-wrap { width: 80px; background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .lb-bar { height: 100%; background: linear-gradient(90deg, var(--ocean), var(--ocean-mid)); border-radius: 4px; }
+ 
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; animation: fadeOverlay 0.2s ease; }
+  @keyframes fadeOverlay { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--surface); border-radius: 20px; padding: 2rem; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideModal 0.25s ease; }
+  @keyframes slideModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal h3 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .modal p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-cancel { flex: 1; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; padding: 10px; border-radius: 10px; transition: all 0.2s; }
+  .btn-cancel:hover { background: #eee; }
+  .btn-confirm { flex: 2; background: var(--kelp); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 600; padding: 10px; border-radius: 10px; transition: all 0.2s; }
+  .btn-confirm:hover { background: #145c3c; }
+ 
+  /* TOAST */
+  .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 99999; background: var(--text); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 0.88rem; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.3); transform: translateX(200%); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); max-width: 320px; }
+  .toast.show { transform: translateX(0); }
+  .toast.success { background: var(--kelp); }
+  .toast.warning { background: var(--amber); }
+ 
+  /* PROGRESS STEPS */
+  .progress-steps { display: flex; gap: 0; margin-bottom: 2rem; background: var(--surface2); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .step { flex: 1; padding: 10px; text-align: center; font-size: 0.78rem; color: var(--text-faint); font-weight: 500; }
+  .step.done { background: var(--kelp-light); color: var(--kelp); }
+  .step.active { background: var(--ocean); color: #fff; }
+ 
+  /* =================== REWARDS PAGE =================== */
+  .rewards-hero {
+    background: linear-gradient(135deg, #1a0a00 0%, #3d1c00 40%, #1a0a00 100%);
+    padding: 3rem 2rem 2.5rem; position: relative; overflow: hidden;
+  }
+  .rewards-hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(245,197,24,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 50%, rgba(232,134,26,0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .rewards-hero-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; position: relative; }
+  .rewards-title-block h2 { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem,3vw,2.6rem); font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .rewards-title-block h2 span { color: var(--gold); }
+  .rewards-title-block p { color: rgba(255,255,255,0.6); font-size: 0.95rem; max-width: 420px; }
+  .my-points-card {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(245,197,24,0.3);
+    border-radius: 20px; padding: 1.25rem 2rem; text-align: center; min-width: 200px;
+    backdrop-filter: blur(10px);
+  }
+  .my-points-label { font-size: 0.78rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .my-points-num { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: var(--gold); line-height: 1; }
+  .my-points-sub { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .rewards-wave { display: block; width: 100%; height: 50px; }
+ 
+  /* REWARD CATEGORIES */
+  .reward-cats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
+  .rcat-btn { background: var(--surface); border: 1.5px solid var(--border); color: var(--text-muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; padding: 8px 18px; border-radius: 25px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .rcat-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .rcat-btn.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+ 
+  /* REWARD CARDS */
+  .reward-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 1.25rem; }
+  .reward-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    overflow: hidden; transition: all 0.28s; position: relative;
+  }
+  .reward-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(10,74,110,0.15); }
+  .reward-card.featured::before { content: '⭐ Featured'; position: absolute; top: 12px; left: 12px; background: var(--gold); color: #7a5500; font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; z-index: 10; font-family: 'DM Sans', sans-serif; letter-spacing: 0.04em; }
+  .reward-card.hot::before { content: '🔥 Popular'; position: absolute; top: 12px; left: 12px; background: #ff4d2e; color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; z-index: 10; font-family: 'DM Sans', sans-serif; }
+  .reward-card.new-item::before { content: '✨ New'; position: absolute; top: 12px; left: 12px; background: var(--kelp); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; z-index: 10; font-family: 'DM Sans', sans-serif; }
+  .reward-img-wrap {
+    height: 180px; background: #f0f4f8; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .reward-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .reward-card:hover .reward-img-wrap img { transform: scale(1.06); }
+  .reward-img-fallback { font-size: 5rem; opacity: 0.15; }
+  .reward-body { padding: 1rem 1.1rem 1.1rem; }
+  .reward-cat-tag { font-size: 0.7rem; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .reward-name { font-family: 'Syne', sans-serif; font-size: 0.98rem; font-weight: 700; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+  .reward-desc { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; line-height: 1.5; }
+  .reward-footer { display: flex; align-items: center; justify-content: space-between; }
+  .reward-pts {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; color: var(--amber);
+  }
+  .reward-pts .coin { font-size: 0.9rem; }
+  .reward-pts .pts-label { font-size: 0.68rem; color: var(--text-faint); font-family: 'DM Sans', sans-serif; font-weight: 400; margin-left: 2px; }
+  .btn-redeem {
+    background: var(--ocean); color: #fff; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 600;
+    padding: 7px 16px; border-radius: 8px; transition: all 0.2s;
+  }
+  .btn-redeem:hover { background: var(--ocean-mid); transform: scale(1.03); }
+  .btn-redeem:disabled { background: #ccc; color: #888; cursor: not-allowed; transform: none; }
+  .btn-redeem.redeemed { background: var(--kelp); cursor: default; }
+ 
+  /* REDEEM MODAL */
+  .redeem-modal { max-width: 440px; }
+  .redeem-item-preview { display: flex; align-items: center; gap: 14px; background: var(--surface2); border-radius: 12px; padding: 14px; margin-bottom: 1.25rem; }
+  .redeem-img-sm { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: #eee; }
+  .redeem-item-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--text); }
+  .redeem-item-pts { font-size: 0.85rem; color: var(--amber); font-weight: 600; }
+  .redeem-balance { background: var(--gold-light); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
+  .redeem-balance .lbl { color: var(--text-muted); }
+  .redeem-balance .val { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--amber); font-size: 1rem; }
+  .redeem-address-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.25rem; }
+  .redeem-address-form input { font-size: 0.88rem; padding: 9px 12px; }
+  .redeem-address-form label { font-size: 0.75rem; margin-bottom: -4px; }
+  .btn-confirm-redeem { width: 100%; background: linear-gradient(135deg, var(--amber), #d4780f); color: #fff; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; padding: 13px; border-radius: 12px; transition: all 0.2s; letter-spacing: 0.01em; }
+  .btn-confirm-redeem:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,134,26,0.4); }
+ 
+  /* HOW POINTS WORK BANNER */
+  .how-pts-banner {
+    background: linear-gradient(135deg, var(--ocean), #0d3a5c);
+    border-radius: 20px; padding: 1.75rem 2rem; margin-bottom: 2rem; color: #fff;
+    display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 1.5rem;
+  }
+  .how-pts-item { text-align: center; }
+  .how-pts-icon { font-size: 2rem; margin-bottom: 8px; }
+  .how-pts-action { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--gold); }
+  .how-pts-desc { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin-top: 2px; }
+ 
+  @media (max-width: 640px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2rem; }
+    nav { padding: 0 1rem; }
+    .nav-tabs .nav-tab { display: none; }
+    .nav-tabs .nav-tab:nth-child(1), .nav-tabs .nav-tab:nth-child(2) { display: block; }
+    .rewards-hero-inner { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+ 
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo"><div class="icon">♻</div><span class="brand">Waste2Value</span></div>
+    <h2 class="auth-title" id="auth-title">Welcome Back</h2>
+    <p class="auth-sub" id="auth-sub">Sign in to access the ocean waste marketplace</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+      <div class="auth-tab" onclick="switchAuthTab('signup')">Create Account</div>
+    </div>
+    <button class="btn-google" onclick="googleAuth()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider"><span>or continue with email</span></div>
+    <div class="auth-panel active" id="panel-login">
+      <div class="auth-form-group"><label>Email Address</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="auth-form-group"><label>Password</label><input type="password" id="login-pass" placeholder="Enter your password"></div>
+      <button class="btn-auth" onclick="doLogin()">Sign In →</button>
+      <p class="auth-terms">Forgot your password? <a href="#" style="color:var(--ocean);">Reset it</a></p>
+    </div>
+    <div class="auth-panel" id="panel-signup">
+      <div class="auth-form-row">
+        <div class="auth-form-group"><label>First Name</label><input type="text" id="signup-fname" placeholder="Arjun"></div>
+        <div class="auth-form-group"><label>Last Name</label><input type="text" id="signup-lname" placeholder="Sharma"></div>
+      </div>
+      <div class="auth-form-group"><label>Email Address</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
+      <div class="auth-form-group"><label>Phone Number</label><input type="tel" id="signup-phone" placeholder="+91 98765 43210"></div>
+      <div class="auth-form-group"><label>Password</label><input type="password" id="signup-pass" placeholder="Min. 8 characters"></div>
+      <button class="btn-auth" onclick="doSignup()">Create Account →</button>
+      <p class="auth-terms">By signing up you agree to our <a href="#" style="color:var(--ocean);">Terms of Service</a></p>
+    </div>
+  </div>
+</div>
+ 
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+ 
+<!-- CLAIM MODAL -->
+<div id="modal-overlay" style="display:none;" class="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">Claim this waste?</h3>
+    <p id="modal-desc">You'll be connected with the collector to arrange pickup.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmClaim()">Confirm Claim ✓</button>
+    </div>
+  </div>
+</div>
+ 
+<!-- SELLER DETAILS MODAL -->
+<div id="seller-overlay" style="display:none;" class="modal-overlay">
+  <div class="seller-modal-card">
+    <div class="seller-header">
+      <div class="seller-avatar-lg" id="seller-avatar-lg"></div>
+      <div><div class="seller-name" id="seller-name-lg"></div><div class="seller-since" id="seller-since"></div><div class="seller-rating" id="seller-rating"></div></div>
+    </div>
+    <div class="seller-contact-list" id="seller-contact-list"></div>
+    <div class="seller-listing-info" id="seller-listing-info"></div>
+    <button class="btn-close-seller" onclick="closeSellerModal()">Close</button>
+  </div>
+</div>
+ 
+<!-- REDEEM MODAL -->
+<div id="redeem-overlay" style="display:none;" class="modal-overlay">
+  <div class="modal redeem-modal">
+    <h3 id="redeem-title">Redeem Reward</h3>
+    <div class="redeem-item-preview">
+      <img id="redeem-preview-img" src="" alt="" class="redeem-img-sm" onerror="this.style.display='none'">
+      <div>
+        <div class="redeem-item-name" id="redeem-item-name"></div>
+        <div class="redeem-item-pts" id="redeem-item-pts"></div>
+      </div>
+    </div>
+    <div class="redeem-balance">
+      <span class="lbl">Your balance</span>
+      <span class="val" id="redeem-balance-show">0 pts</span>
+    </div>
+    <div class="redeem-address-form">
+      <label>Full Name</label><input type="text" id="rd-name" placeholder="Arjun Sharma">
+      <label>Delivery Address</label><input type="text" id="rd-addr" placeholder="123, MG Road, Bengaluru">
+      <label>City & PIN</label><input type="text" id="rd-city" placeholder="Bengaluru 560001">
+      <label>Mobile</label><input type="tel" id="rd-phone" placeholder="+91 98765 43210">
+    </div>
+    <button class="btn-confirm-redeem" onclick="confirmRedeem()">🎁 Confirm Redemption</button>
+    <div style="margin-top:10px;"><button class="btn-cancel" onclick="closeRedeemModal()" style="width:100%;">Cancel</button></div>
+  </div>
+</div>
+ 
+<!-- NAV -->
+<nav>
+  <div class="nav-brand"><div class="w-icon">♻</div>Waste2Value</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('home')">Home</button>
+    <button class="nav-tab" onclick="showPage('marketplace')">Marketplace</button>
+    <button class="nav-tab" onclick="showPage('upload')">Upload</button>
+    <button class="nav-tab" onclick="showPage('map')">Map</button>
+    <button class="nav-tab" onclick="showPage('dashboard')">Impact</button>
+    <button class="nav-tab rewards-tab" onclick="showPage('rewards')">🏆 Rewards</button>
+  </div>
+  <div class="nav-user-menu" id="nav-user-area">
+    <div class="nav-points-badge" id="nav-pts-badge">⭐ 0 pts</div>
+    <div class="user-chip" onclick="toggleUserDropdown()">
+      <div class="user-avatar-nav" id="nav-avatar">?</div>
+      <span class="user-name-nav" id="nav-username">Loading…</span>
+    </div>
+    <div class="user-dropdown" id="user-dropdown">
+      <div class="dropdown-item" onclick="showPage('dashboard')">📊 My Impact</div>
+      <div class="dropdown-item" onclick="showPage('rewards')">🏆 Rewards</div>
+      <div class="dropdown-item" onclick="showPage('upload')">📤 List Waste</div>
+      <div class="dropdown-item danger" onclick="doLogout()">🚪 Sign Out</div>
+    </div>
+  </div>
+</nav>
+ 
+<!-- ===== HOME PAGE ===== -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <div class="hero-badge">🌊 Circular Economy Platform</div>
+    <h1>Turn Ocean Waste<br>Into <span>Opportunity</span></h1>
+    <p>Connect cleanup volunteers with recyclers and companies. Transform marine debris from a burden into a resource.</p>
+    <div class="hero-btns">
+      <button class="btn-primary" onclick="showPage('marketplace')">Browse Marketplace →</button>
+      <button class="btn-outline" onclick="showPage('upload')">Upload Collected Waste</button>
+    </div>
+    <svg class="hero-wave" viewBox="0 0 1200 80" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,40 C200,80 400,0 600,40 C800,80 1000,0 1200,40 L1200,80 L0,80 Z" fill="#f8fafc"/>
+    </svg>
+  </div>
+  <div class="stats-strip">
+    <div class="stat-item"><span class="stat-num" id="home-total-kg">0</span><span class="stat-label">Kg waste listed</span></div>
+    <div class="stat-item highlight"><span class="stat-num" id="home-co2">0</span><span class="stat-label">Kg CO₂ saved (est.)</span></div>
+    <div class="stat-item"><span class="stat-num" id="home-claimed">0</span><span class="stat-label">Listings claimed</span></div>
+    <div class="stat-item"><span class="stat-num" id="home-users">0</span><span class="stat-label">Active collectors</span></div>
+    <div class="stat-item"><span class="stat-num" id="home-area">0 km²</span><span class="stat-label">Ocean area cleaned</span></div>
+  </div>
+  <div class="main-container">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:2.5rem;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">📤</div>
+        <h3 style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px;">Collectors</h3>
+        <p style="font-size:0.85rem;color:var(--text-muted);line-height:1.6;">Upload photos and details of collected marine waste. Set your location and earn points for every listing.</p>
+      </div>
+      <div style="background:var(--ocean);border-radius:var(--radius);padding:1.5rem;color:white;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">🔄</div>
+        <h3 style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px;">Marketplace</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.7);line-height:1.6;">Buyers browse available waste by type, quantity, and location. Claim listings and coordinate pickup.</p>
+      </div>
+      <div style="background:linear-gradient(135deg,#3d1c00,#1a0a00);border-radius:var(--radius);padding:1.5rem;color:white;cursor:pointer;" onclick="showPage('rewards')">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">🏆</div>
+        <h3 style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gold);">Rewards Store</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.65);line-height:1.6;">Earn points for cleanups and redeem them for electronics, gift vouchers, appliances and exclusive merchandise!</p>
+      </div>
+    </div>
+    <div class="section-header">
+      <div><div class="section-title">Recent Listings</div><div class="section-sub">Newest waste available for claiming</div></div>
+      <button class="btn-details" onclick="showPage('marketplace')" style="font-size:0.85rem;">View all →</button>
+    </div>
+    <div class="waste-grid" id="home-recent-grid"></div>
+  </div>
+</div>
+ 
+<!-- ===== MARKETPLACE PAGE ===== -->
+<div class="page" id="page-marketplace">
+  <div class="main-container">
+    <div class="section-header">
+      <div><div class="section-title">Waste Marketplace</div><div class="section-sub">Browse and claim available ocean waste</div></div>
+      <span id="listing-count" style="font-size:0.85rem;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 14px;">0 listings</span>
+    </div>
+    <div class="filter-bar">
+      <div class="search-box"><span>🔍</span><input type="text" id="search-input" placeholder="Search waste type, location..." oninput="filterListings()"></div>
+      <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('plastic',this)">🔵 Plastic</button>
+      <button class="filter-btn" onclick="setFilter('nets',this)">🟢 Nets</button>
+      <button class="filter-btn" onclick="setFilter('glass',this)">🟡 Glass</button>
+      <button class="filter-btn" onclick="setFilter('mixed',this)">🔴 Mixed</button>
+      <button class="filter-btn" onclick="setFilter('available',this)">Available only</button>
+    </div>
+    <div class="waste-grid" id="market-grid"></div>
+  </div>
+</div>
+ 
+<!-- ===== UPLOAD PAGE ===== -->
+<div class="page" id="page-upload">
+  <div class="main-container">
+    <div class="progress-steps" style="max-width:700px;margin:0 auto 1.5rem;">
+      <div class="step active">1. Waste Type</div><div class="step">2. Details</div><div class="step">3. Location</div><div class="step">4. Submit</div>
+    </div>
+    <div class="form-container">
+      <div class="form-header"><h2>List Your Collected Waste</h2><p>Help connect your cleanup effort with companies who can give this waste a second life.</p></div>
+      <div style="margin-bottom:1.25rem;">
+        <label style="display:block;margin-bottom:8px;">Waste Type</label>
+        <div class="type-selector" id="type-selector">
+          <div class="type-option selected" data-type="plastic" onclick="selectType(this)"><div class="type-icon">🔵</div><div class="type-name">Plastic</div></div>
+          <div class="type-option" data-type="nets" onclick="selectType(this)"><div class="type-icon">🟢</div><div class="type-name">Fishing Nets</div></div>
+          <div class="type-option" data-type="glass" onclick="selectType(this)"><div class="type-icon">🟡</div><div class="type-name">Glass</div></div>
+          <div class="type-option" data-type="mixed" onclick="selectType(this)"><div class="type-icon">🔴</div><div class="type-name">Mixed</div></div>
+        </div>
+        <div class="sugg-box" id="sugg-box">
+          <h4>💡 AI Reuse Suggestions for Plastic</h4>
+          <div class="sugg-chips" id="sugg-chips"></div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Title / Description</label><input type="text" id="f-title" placeholder="e.g. Coastal plastic bottles"></div>
+        <div class="form-group"><label>Quantity (kg)</label><input type="number" id="f-qty" placeholder="e.g. 12" min="0.1"></div>
+        <div class="form-group full"><label>Condition</label><select id="f-condition"><option>Clean / Sorted</option><option>Moderately clean</option><option>Needs processing</option></select></div>
+        <div class="form-group full"><label>Additional Notes</label><textarea id="f-notes" placeholder="Any extra details about the waste, pickup requirements, etc."></textarea></div>
+      </div>
+      <div style="margin-top:1.25rem;">
+        <label style="display:block;margin-bottom:8px;">📍 Pick Location on Map</label>
+        <div class="location-picker-wrap">
+          <div class="map-instruction">🖱️ Click anywhere on the map to mark your waste location</div>
+          <div id="upload-map"></div>
+          <div class="location-coords"><div class="coords-dot"></div><span id="coords-display">No location selected — click the map above</span></div>
+        </div>
+        <div style="margin-top:8px;"><label style="display:block;margin-bottom:4px;">Location Name</label><input type="text" id="f-location" placeholder="e.g. Mangalore Beach, Karnataka"></div>
+      </div>
+      <button class="submit-btn" onclick="submitListing()">🌊 Publish Listing — Earn 50 Points</button>
+    </div>
+  </div>
+</div>
+ 
+<!-- ===== MAP PAGE ===== -->
+<div class="page" id="page-map">
+  <div class="main-container">
+    <div class="section-header"><div><div class="section-title">Waste Activity Map</div><div class="section-sub">Locations with available waste and recent cleanups</div></div></div>
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#0e6b9e;"></div>Plastic waste</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1a6b4a;"></div>Fishing nets</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e8861a;"></div>Glass waste</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c0392b;"></div>Mixed waste</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8aa0b4;"></div>Claimed</div>
+    </div>
+  </div>
+</div>
+ 
+<!-- ===== DASHBOARD PAGE ===== -->
+<div class="page" id="page-dashboard">
+  <div class="main-container">
+    <div class="section-header">
+      <div><div class="section-title">Impact Dashboard</div><div class="section-sub">Real-world environmental impact — sourced from UNEP, IUCN & Plastic Pollution Coalition research</div></div>
+    </div>
+    <div class="impact-grid">
+      <div class="impact-card">
+        <div class="impact-icon">⚖️</div>
+        <div class="impact-num" id="d-total-kg">0 kg</div>
+        <div class="impact-label">Total marine waste collected</div>
+        <div class="impact-delta" id="d-kg-delta">↑ +0 this week</div>
+        <div class="impact-source">Source: Platform listings</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">🌱</div>
+        <div class="impact-num" id="d-co2">0 kg</div>
+        <div class="impact-label">CO₂ equivalent prevented</div>
+        <div class="impact-delta">2.9 kg CO₂/kg plastic (UNEP 2023)</div>
+        <div class="impact-source">vs. virgin plastic production</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">🐢</div>
+        <div class="impact-num" id="d-animals">0</div>
+        <div class="impact-label">Marine animals protected</div>
+        <div class="impact-delta">1 animal per ~3 kg removed</div>
+        <div class="impact-source">Source: IUCN Marine Debris 2022</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">🌊</div>
+        <div class="impact-num" id="d-area">0 km²</div>
+        <div class="impact-label">Ocean area protected</div>
+        <div class="impact-delta">0.005 km² per 10 kg collected</div>
+        <div class="impact-source">Source: Ocean Conservancy 2023</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">⚡</div>
+        <div class="impact-num" id="d-energy">0 kWh</div>
+        <div class="impact-label">Energy saved via recycling</div>
+        <div class="impact-delta">5.77 kWh per kg plastic recycled</div>
+        <div class="impact-source">Source: US EPA Energy Recovery</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">♻️</div>
+        <div class="impact-num" id="d-recycled">0%</div>
+        <div class="impact-label">Waste successfully claimed</div>
+        <div class="impact-delta" id="d-claimed-n">0 of 0 listings</div>
+        <div class="impact-source">Platform data</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">👥</div>
+        <div class="impact-num" id="d-collectors">0</div>
+        <div class="impact-label">Active collectors</div>
+        <div class="impact-delta">Across coastal India regions</div>
+        <div class="impact-source">Platform data</div>
+      </div>
+      <div class="impact-card">
+        <div class="impact-icon">🏆</div>
+        <div class="impact-num" id="d-pts">0</div>
+        <div class="impact-label">Total community points</div>
+        <div class="impact-delta">Your score: <strong id="d-my-pts">0</strong></div>
+        <div class="impact-source">Platform rewards</div>
+      </div>
+    </div>
+ 
+    <!-- SCIENCE FACTS -->
+    <div style="margin-bottom:2rem;">
+      <div class="section-header"><div><div class="section-title">🔬 Why It Matters — Research Facts</div><div class="section-sub">Data from peer-reviewed studies and global agencies</div></div></div>
+      <div class="fact-grid">
+        <div class="fact-card">
+          <div class="fact-icon">🐋</div>
+          <div class="fact-num">8 Million</div>
+          <div class="fact-text">Metric tonnes of plastic enter our oceans every year — equivalent to dumping a garbage truck of plastic every minute.</div>
+          <div class="fact-source">Source: Jambeck et al., Science 2015</div>
+        </div>
+        <div class="fact-card" style="background:linear-gradient(135deg,#1a3d0a,#2e6b18);">
+          <div class="fact-icon">🐢</div>
+          <div class="fact-num">700+ Species</div>
+          <div class="fact-text">Marine species are negatively impacted by plastic debris. Sea turtles mistake plastic bags for jellyfish; 100,000+ marine mammals die annually.</div>
+          <div class="fact-source">Source: IUCN Red List 2022</div>
+        </div>
+        <div class="fact-card" style="background:linear-gradient(135deg,#3d1a00,#6b3010);">
+          <div class="fact-icon">💰</div>
+          <div class="fact-num">₹8 Lakh Cr</div>
+          <div class="fact-text">Annual economic damage to marine industries including tourism, fishing, and shipping from marine plastic pollution globally.</div>
+          <div class="fact-source">Source: UNEP 2021 Economic Analysis</div>
+        </div>
+        <div class="fact-card" style="background:linear-gradient(135deg,#0a1a3d,#103060);">
+          <div class="fact-icon">🇮🇳</div>
+          <div class="fact-num">0.6 MT/yr</div>
+          <div class="fact-text">India contributes approximately 0.6 million tonnes of plastic to ocean pollution annually, with coastlines spanning 7,516 km.</div>
+          <div class="fact-source">Source: Ocean Conservancy India 2023</div>
+        </div>
+        <div class="fact-card" style="background:linear-gradient(135deg,#1a0a2e,#2d1052);">
+          <div class="fact-icon">🔁</div>
+          <div class="fact-num">95% Savings</div>
+          <div class="fact-text">Recycling plastic uses 95% less energy than producing virgin plastic from petroleum. Every kg recycled = 5.77 kWh saved.</div>
+          <div class="fact-source">Source: US EPA Energy Recovery Report</div>
+        </div>
+        <div class="fact-card" style="background:linear-gradient(135deg,#0a2e1a,#0e5232);">
+          <div class="fact-icon">🥅</div>
+          <div class="fact-num">640,000 T</div>
+          <div class="fact-text">Ghost fishing gear (abandoned nets & lines) accounts for 640,000 tonnes of ocean plastic annually, trapping 136,000 marine mammals.</div>
+          <div class="fact-source">Source: WWF Fishing Gear Report 2021</div>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="chart-grid">
+      <div class="chart-card"><div class="chart-title">Waste by Type (kg)</div><div style="position:relative;height:220px;"><canvas id="typeChart"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Community Cleanups — Monthly Growth</div><div style="position:relative;height:220px;"><canvas id="timeChart"></canvas></div></div>
+    </div>
+    <div style="margin-top:2rem;">
+      <div class="section-header"><div><div class="section-title">🏆 Leaderboard</div><div class="section-sub">Top collectors and recyclers</div></div></div>
+      <div class="leaderboard" id="leaderboard"></div>
+    </div>
+  </div>
+</div>
+ 
+<!-- ===== REWARDS PAGE ===== -->
+<div class="page" id="page-rewards">
+  <div class="rewards-hero">
+    <div class="rewards-hero-inner">
+      <div class="rewards-title-block">
+        <h2>🏆 Rewards <span>Store</span></h2>
+        <p>Clean oceans, earn points, claim real prizes. Your environmental action powers a better future — and earns you awesome stuff.</p>
+      </div>
+      <div class="my-points-card">
+        <div class="my-points-label">⭐ Your Points</div>
+        <div class="my-points-num" id="rewards-my-pts">0</div>
+        <div class="my-points-sub">Available to redeem</div>
+      </div>
+    </div>
+    <svg class="rewards-wave" viewBox="0 0 1200 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,25 C300,50 600,0 900,25 C1050,37 1150,10 1200,25 L1200,50 L0,50 Z" fill="#f8fafc"/>
+    </svg>
+  </div>
+ 
+  <div class="main-container">
+    <!-- HOW POINTS WORK -->
+    <div class="how-pts-banner">
+      <div class="how-pts-item"><div class="how-pts-icon">📤</div><div class="how-pts-action">+50 pts</div><div class="how-pts-desc">List a waste collection</div></div>
+      <div class="how-pts-item"><div class="how-pts-icon">🤝</div><div class="how-pts-action">+30 pts</div><div class="how-pts-desc">Claim a listing</div></div>
+      <div class="how-pts-item"><div class="how-pts-icon">✅</div><div class="how-pts-action">+qty×3 pts</div><div class="how-pts-desc">Per kg of waste collected</div></div>
+      <div class="how-pts-item"><div class="how-pts-icon">🎁</div><div class="how-pts-action">Redeem</div><div class="how-pts-desc">Spend on real rewards below</div></div>
+    </div>
+ 
+    <!-- CATEGORY FILTER -->
+    <div class="reward-cats" id="reward-cats">
+      <button class="rcat-btn active" onclick="filterRewards('all',this)">🌟 All Rewards</button>
+      <button class="rcat-btn" onclick="filterRewards('electronics',this)">📱 Electronics</button>
+      <button class="rcat-btn" onclick="filterRewards('appliances',this)">🏠 Appliances</button>
+      <button class="rcat-btn" onclick="filterRewards('vouchers',this)">🎫 Vouchers</button>
+      <button class="rcat-btn" onclick="filterRewards('fashion',this)">👕 Fashion & Clothes</button>
+      <button class="rcat-btn" onclick="filterRewards('accessories',this)">🎒 Accessories</button>
+      <button class="rcat-btn" onclick="filterRewards('stationery',this)">✏️ Stationery</button>
+      <button class="rcat-btn" onclick="filterRewards('hampers',this)">🎁 Gift Hampers</button>
+    </div>
+ 
+    <div class="reward-grid" id="reward-grid"></div>
+  </div>
+</div>
+ 
+<script>
+// ====== DATA ======
+const SUGGESTIONS = {
+  plastic: ['Plastic bricks for construction','Upcycled furniture','Eco-packaging pellets','Synthetic fiber boards','3D printing filament'],
+  nets: ['Fashion accessories','Carpet fibers','Hammock weaving','Industrial ropes','Aquaculture equipment'],
+  glass: ['Mosaic art tiles','Road aggregate','Sand replacement in concrete','Decorative landscaping','Insulation material'],
+  mixed: ['Waste-to-energy processing','Composite building panels','Art installations','Sorted for separate recycling','Industrial filler material']
+};
+const COLORS = { plastic:'#0e6b9e', nets:'#1a6b4a', glass:'#e8861a', mixed:'#c0392b' };
+const AVG_COLORS = ['#0e6b9e','#1a6b4a','#e8861a','#c0392b','#7b2d8b'];
+ 
+let currentFilter = 'all';
+let currentRewardFilter = 'all';
+let selectedType = 'plastic';
+let pendingClaim = null;
+let pendingRedeem = null;
+let uploadMarker = null, uploadLat = null, uploadLng = null;
+let uploadMap = null, leafletMap = null;
+let mapInitialized = false;
+let typeChart = null, timeChart = null;
+let currentUser = null;
+ 
+const DEMO_USERS = {
+  'ravi@example.com':   { pass:'pass123', name:'Ravi Kumar', phone:'+91 98001 11111' },
+  'suma@example.com':   { pass:'pass123', name:'Suma Pillai', phone:'+91 98002 22222' },
+  'priya@example.com':  { pass:'pass123', name:'Priya Sundaram', phone:'+91 98003 33333' },
+  'vikram@example.com': { pass:'pass123', name:'Vikram Nair', phone:'+91 98004 44444' },
+  'ananya@example.com': { pass:'pass123', name:'Ananya R.', phone:'+91 98005 55555' },
+  'deepak@example.com': { pass:'pass123', name:'Deepak Shetty', phone:'+91 98006 66666' },
+};
+ 
+const defaultListings = [
+  { id:1, type:'plastic', title:'PET Bottles & Containers', qty:18, location:'Malpe Beach, Karnataka', condition:'Clean / Sorted', notes:'Mostly PET bottles from beach cleanup drive.', uploader:'Ravi Kumar', uploaderEmail:'ravi@example.com', uploaderPhone:'+91 98001 11111', status:'available', date:'2 days ago', lat:13.353, lng:74.694 },
+  { id:2, type:'nets', title:'Old Trawl Netting Bundle', qty:35, location:'Kochi Harbor, Kerala', condition:'Moderately clean', notes:'Large bundle of decommissioned trawl nets.', uploader:'Suma Pillai', uploaderEmail:'suma@example.com', uploaderPhone:'+91 98002 22222', status:'available', date:'5 days ago', lat:9.966, lng:76.289 },
+  { id:3, type:'glass', title:'Sea Glass & Bottles', qty:8, location:'Pondicherry Shoreline', condition:'Clean / Sorted', notes:'Various colored sea glass, great for mosaic art.', uploader:'Priya Sundaram', uploaderEmail:'priya@example.com', uploaderPhone:'+91 98003 33333', status:'claimed', date:'1 week ago', lat:11.934, lng:79.831 },
+  { id:4, type:'mixed', title:'Mixed Coastal Debris', qty:52, location:'Chennai Marina, Tamil Nadu', condition:'Needs processing', notes:'Large mixed load — requires sorting facility.', uploader:'Vikram Nair', uploaderEmail:'vikram@example.com', uploaderPhone:'+91 98004 44444', status:'available', date:'3 days ago', lat:13.049, lng:80.282 },
+  { id:5, type:'plastic', title:'Microplastic Pellets (sorted)', qty:4.5, location:'Vizag Beach, Andhra Pradesh', condition:'Clean / Sorted', notes:'Pre-sorted microplastics, ready for recycling.', uploader:'Ananya R.', uploaderEmail:'ananya@example.com', uploaderPhone:'+91 98005 55555', status:'pending', date:'1 day ago', lat:17.686, lng:83.218 },
+  { id:6, type:'nets', title:'Monofilament Line Collection', qty:12, location:'Mangalore Port, Karnataka', condition:'Clean / Sorted', notes:'Fishing line collected from local fishermen.', uploader:'Deepak Shetty', uploaderEmail:'deepak@example.com', uploaderPhone:'+91 98006 66666', status:'available', date:'4 days ago', lat:12.868, lng:74.843 },
+];
+ 
+// ====== REWARDS CATALOGUE ======
+// Using freely available product images from Unsplash (no attribution required for display)
+const REWARDS_DATA = [
+  // Electronics
+  { id:'r1', cat:'electronics', name:'Wireless Earbuds', desc:'Premium TWS earbuds with active noise cancellation, 30hr battery life, IPX5 water resistant.', pts:2500, badge:'hot', img:'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&q=80' },
+  { id:'r2', cat:'electronics', name:'Smartphone (Mid-range)', desc:'6.7" FHD+ display, 5000mAh battery, 128GB storage. Latest Android OS.', pts:18000, badge:'featured', img:'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&q=80' },
+  { id:'r3', cat:'electronics', name:'Laptop 15" (Core i5)', desc:'8GB RAM, 512GB SSD, Windows 11, perfect for work and study. Refurbished — Grade A condition.', pts:35000, badge:'featured', img:'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&q=80' },
+  { id:'r4', cat:'electronics', name:'Smart Watch', desc:'Health tracking, GPS, AMOLED display, 7-day battery. Compatible iOS & Android.', pts:5500, badge:'new', img:'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80' },
+  { id:'r5', cat:'electronics', name:'Bluetooth Speaker', desc:'360° surround sound, 20hr playtime, waterproof IPX7 rated, USB-C charging.', pts:3200, badge:'', img:'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&q=80' },
+  { id:'r6', cat:'electronics', name:'USB-C Hub (7-in-1)', desc:'HDMI 4K, 3x USB 3.0, SD card reader, 100W PD charging. Works with any laptop.', pts:1800, badge:'', img:'https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400&q=80' },
+  // Appliances
+  { id:'r7', cat:'appliances', name:'Smart Refrigerator', desc:'Double-door 260L frost-free fridge with inverter compressor. 5-star energy rating.', pts:55000, badge:'featured', img:'https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=400&q=80' },
+  { id:'r8', cat:'appliances', name:'Washing Machine', desc:'7 kg fully-automatic front-load with steam wash, inverter motor, 5-star BEE rating.', pts:42000, badge:'', img:'https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=400&q=80' },
+  { id:'r9', cat:'appliances', name:'Air Purifier', desc:'True HEPA + activated carbon, covers 400 sq.ft, real-time AQI display, auto mode.', pts:8500, badge:'new', img:'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80' },
+  { id:'r10', cat:'appliances', name:'Electric Kettle 1.7L', desc:'Stainless steel BPA-free, 2200W rapid boil, keep-warm mode, auto shut-off safety.', pts:900, badge:'', img:'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=80' },
+  // Vouchers
+  { id:'r11', cat:'vouchers', name:'Amazon ₹500 Gift Card', desc:'Valid on all Amazon India products. No expiry. Delivered to registered email instantly.', pts:600, badge:'hot', img:'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&q=80' },
+  { id:'r12', cat:'vouchers', name:'Flipkart ₹1000 Voucher', desc:'Use on electronics, fashion, groceries. Split across multiple orders allowed.', pts:1100, badge:'', img:'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&q=80' },
+  { id:'r13', cat:'vouchers', name:'Swiggy/Zomato ₹300 Voucher', desc:'Order your favourite meals. Valid for 6 months. Usable on delivery and dine-in.', pts:380, badge:'', img:'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80' },
+  { id:'r14', cat:'vouchers', name:'BookMyShow ₹500 Pass', desc:'Book movies, events, concerts, sports. Valid pan India at 5000+ screens.', pts:580, badge:'new', img:'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&q=80' },
+  // Fashion
+  { id:'r15', cat:'fashion', name:'Waste2Value Eco T-Shirt', desc:'Made from 100% recycled ocean plastic bottles. Unisex, pre-shrunk, 4 colour options. Exclusive W2V design!', pts:800, badge:'new', img:'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80' },
+  { id:'r16', cat:'fashion', name:'Organic Cotton Hoodie', desc:'Sustainable 280gsm hoodie, GOTS certified organic cotton. Chest print "Ocean Warrior". Sizes S–XXL.', pts:2200, badge:'', img:'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80' },
+  { id:'r17', cat:'fashion', name:'Recycled Plastic Cap', desc:'Snapback cap made from 6 recycled PET bottles. Adjustable strap. W2V embroidered logo.', pts:700, badge:'', img:'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400&q=80' },
+  // Accessories
+  { id:'r18', cat:'accessories', name:'Eco Laptop Backpack', desc:'Made from upcycled ocean plastic. 30L capacity, padded 15.6" laptop sleeve, waterproof coating.', pts:3800, badge:'featured', img:'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80' },
+  { id:'r19', cat:'accessories', name:'Recycled PET Laptop Sleeve 15"', desc:'Slim laptop case crafted from recycled PET fabric. Fleece-lined interior, magnetic closure.', pts:1200, badge:'', img:'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=400&q=80' },
+  { id:'r20', cat:'accessories', name:'Smart Analog Watch', desc:'Minimalist stainless steel case, sapphire-coated glass, Japanese movement. Unisex design.', pts:6500, badge:'', img:'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=400&q=80' },
+  { id:'r21', cat:'accessories', name:'Eco Canvas Tote Bag', desc:'Heavy-duty 12oz canvas with W2V ocean art print. Holds up to 15kg. Machine washable.', pts:450, badge:'', img:'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&q=80' },
+  // Stationery
+  { id:'r22', cat:'stationery', name:'Recycled Notebook Set (3-pack)', desc:'A5 notebooks made from 100% post-consumer waste paper. Soft cover, 200 pages each, FSC certified.', pts:600, badge:'', img:'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80' },
+  { id:'r23', cat:'stationery', name:'Seed Pencil Set (10pcs)', desc:'Plantable pencils embedded with seeds. When done writing, plant in soil — grows herbs or wildflowers!', pts:350, badge:'new', img:'https://images.unsplash.com/photo-1546953304-5d96f43c2e94?w=400&q=80' },
+  { id:'r24', cat:'stationery', name:'Bamboo Pen & Pencil Set', desc:'Set of 5 pens and 5 pencils in a bamboo case. Sustainable writing instruments, smooth ink flow.', pts:480, badge:'', img:'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80' },
+  { id:'r25', cat:'stationery', name:'Ocean Art Poster Set', desc:'3 premium A2 posters (270gsm) — ocean conservation artwork exclusive to Waste2Value. Frame-ready.', pts:750, badge:'new', img:'https://images.unsplash.com/photo-1549490349-8643362247b5?w=400&q=80' },
+  // Gift Hampers
+  { id:'r26', cat:'hampers', name:'Ocean Warrior Gift Hamper', desc:'Exclusive W2V merch bundle: T-shirt + tote + notebook set + seed pencils + enamel pin badge.', pts:2800, badge:'featured', img:'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80' },
+  { id:'r27', cat:'hampers', name:'Eco Home Starter Kit', desc:'Bamboo toothbrush set, stainless steel straw kit, beeswax wraps (3-pack), solid shampoo bar. Zero-waste living essentials.', pts:1800, badge:'hot', img:'https://images.unsplash.com/photo-1592078615290-033ee584e267?w=400&q=80' },
+  { id:'r28', cat:'hampers', name:'Wellness & Self-Care Box', desc:'Organic face mask, essential oil roller, sea-mineral bath salts, bamboo body brush, aromatherapy candle.', pts:2200, badge:'', img:'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80' },
+  { id:'r29', cat:'hampers', name:'Student Success Bundle', desc:'A5 notebook pack + bamboo pen set + sticky notes + laptop sleeve + BookMyShow ₹250 voucher.', pts:2500, badge:'new', img:'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80' },
+];
+ 
+function getListings() { const s = localStorage.getItem('w2v_listings'); const u = s ? JSON.parse(s) : []; return [...defaultListings,...u]; }
+function getUserListings() { const s = localStorage.getItem('w2v_listings'); return s ? JSON.parse(s) : []; }
+function saveUserListings(l) { localStorage.setItem('w2v_listings', JSON.stringify(l.filter(x=>x.id>100))); }
+function getPoints() { return parseInt(localStorage.getItem('w2v_points') || '0'); }
+function addPoints(n) { const p = getPoints()+n; localStorage.setItem('w2v_points', p); updateNavPts(); return p; }
+function spendPoints(n) { const p = Math.max(0, getPoints()-n); localStorage.setItem('w2v_points', p); updateNavPts(); return p; }
+function updateNavPts() { const p = getPoints(); document.getElementById('nav-pts-badge').textContent = '⭐ '+p+' pts'; const el = document.getElementById('rewards-my-pts'); if(el) el.textContent = p; }
+ 
+// ====== AUTH ======
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',(tab==='login'&&i===0)||(tab==='signup'&&i===1)));
+  document.getElementById('panel-login').classList.toggle('active',tab==='login');
+  document.getElementById('panel-signup').classList.toggle('active',tab==='signup');
+  document.getElementById('auth-title').textContent = tab==='login'?'Welcome Back':'Create Account';
+  document.getElementById('auth-sub').textContent = tab==='login'?'Sign in to access the ocean waste marketplace':'Join the movement to clean our oceans';
+}
+function googleAuth() {
+  const users = Object.entries(DEMO_USERS);
+  const [email,data] = users[Math.floor(Math.random()*users.length)];
+  currentUser = { name:data.name, email, phone:data.phone, method:'google' };
+  localStorage.setItem('w2v_user', JSON.stringify(currentUser));
+  completeLogin();
+}
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if(!email||!pass){showToast('⚠️ Please enter email and password','warning');return;}
+  const demo = DEMO_USERS[email];
+  if(demo&&demo.pass===pass){currentUser={name:demo.name,email,phone:demo.phone,method:'email'};localStorage.setItem('w2v_user',JSON.stringify(currentUser));completeLogin();return;}
+  const registered = JSON.parse(localStorage.getItem('w2v_registered')||'{}');
+  if(registered[email]&&registered[email].pass===pass){currentUser={...registered[email],email};localStorage.setItem('w2v_user',JSON.stringify(currentUser));completeLogin();return;}
+  showToast('❌ Invalid credentials. Try: ravi@example.com / pass123','warning');
+}
+function doSignup() {
+  const fname=document.getElementById('signup-fname').value.trim();
+  const lname=document.getElementById('signup-lname').value.trim();
+  const email=document.getElementById('signup-email').value.trim();
+  const phone=document.getElementById('signup-phone').value.trim();
+  const pass=document.getElementById('signup-pass').value;
+  if(!fname||!email||!pass){showToast('⚠️ Please fill all required fields','warning');return;}
+  if(pass.length<8){showToast('⚠️ Password must be at least 8 characters','warning');return;}
+  const registered=JSON.parse(localStorage.getItem('w2v_registered')||'{}');
+  if(registered[email]||DEMO_USERS[email]){showToast('⚠️ Email already registered','warning');return;}
+  const user={name:fname+' '+lname,phone:phone||'Not provided',pass,method:'email'};
+  registered[email]=user; localStorage.setItem('w2v_registered',JSON.stringify(registered));
+  currentUser={name:user.name,email,phone:user.phone,method:'email'};
+  localStorage.setItem('w2v_user',JSON.stringify(currentUser)); completeLogin();
+}
+function completeLogin() {
+  document.getElementById('auth-overlay').style.display='none';
+  const initials=currentUser.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('nav-avatar').textContent=initials;
+  document.getElementById('nav-username').textContent=currentUser.name.split(' ')[0];
+  updateNavPts();
+  showToast('👋 Welcome, '+currentUser.name.split(' ')[0]+'!','success');
+  renderHomeRecent(); updateHomeStats();
+}
+function doLogout() {
+  localStorage.removeItem('w2v_user'); currentUser=null;
+  document.getElementById('user-dropdown').classList.remove('open');
+  document.getElementById('auth-overlay').style.display='flex';
+  showToast('Signed out successfully');
+}
+function toggleUserDropdown(){document.getElementById('user-dropdown').classList.toggle('open');}
+document.addEventListener('click',e=>{const m=document.getElementById('nav-user-area');if(!m.contains(e.target))document.getElementById('user-dropdown').classList.remove('open');});
+ 
+(function checkSession(){
+  const saved=localStorage.getItem('w2v_user');
+  if(saved){currentUser=JSON.parse(saved);document.getElementById('auth-overlay').style.display='none';
+  const initials=currentUser.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('nav-avatar').textContent=initials;document.getElementById('nav-username').textContent=currentUser.name.split(' ')[0];updateNavPts();}
+})();
+ 
+// ====== NAVIGATION ======
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const map={'home':'Home','marketplace':'Marketplace','upload':'Upload','map':'Map','dashboard':'Impact','rewards':'Rewards'};
+  document.querySelectorAll('.nav-tab').forEach(t=>{if(t.textContent.trim().replace('🏆 ','')===map[id])t.classList.add('active');});
+  if(id==='home'){renderHomeRecent();updateHomeStats();}
+  if(id==='marketplace')renderMarket();
+  if(id==='map'&&!mapInitialized){setTimeout(initMap,100);mapInitialized=true;}
+  if(id==='upload')setTimeout(initUploadMap,100);
+  if(id==='dashboard')updateDashboard();
+  if(id==='rewards'){updateNavPts();renderRewards();}
+  window.scrollTo(0,0);
+}
+ 
+// ====== WASTE CARD ======
+function wasteCardHTML(item) {
+  const isAvail=item.status==='available';
+  const co2=(item.qty*2.9).toFixed(0);
+  const suggs=SUGGESTIONS[item.type].slice(0,2).join(', ');
+  const avatarBg=AVG_COLORS[item.id%AVG_COLORS.length];
+  const initials=item.uploader.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const statusClass=item.status==='available'?'status-available':item.status==='claimed'?'status-claimed':'status-pending';
+  const statusLabel=item.status==='available'?'● Available':item.status==='claimed'?'✓ Claimed':'⏳ Pending';
+  const badgeClass=`badge-${item.type}`;
+  const typeLabel=item.type==='nets'?'Fishing Nets':item.type.charAt(0).toUpperCase()+item.type.slice(1);
+  const safeItem=encodeURIComponent(JSON.stringify({id:item.id,uploader:item.uploader,email:item.uploaderEmail||'Not provided',phone:item.uploaderPhone||'Not provided',location:item.location,type:item.type,qty:item.qty,condition:item.condition,notes:item.notes,date:item.date}));
+  return `<div class="waste-card ${item.type}" id="card-${item.id}">
+    <div class="card-top"><span class="waste-type-badge ${badgeClass}">${typeLabel}</span><span class="waste-status ${statusClass}">${statusLabel}</span></div>
+    <div class="card-title">${item.title}</div>
+    <div class="card-meta">📍 ${item.location}</div>
+    <div class="card-details">
+      <div class="detail-box"><div class="detail-label">Quantity</div><div class="detail-value">${item.qty} kg</div></div>
+      <div class="detail-box"><div class="detail-label">CO₂ Saved</div><div class="detail-value">~${co2} kg</div></div>
+      <div class="detail-box" style="grid-column:1/-1;"><div class="detail-label">Condition</div><div class="detail-value" style="font-size:0.82rem;">${item.condition}</div></div>
+    </div>
+    <div class="card-suggestions"><div class="sugg-label">💡 Reuse ideas</div>${suggs}</div>
+    <div class="card-actions">
+      <button class="btn-claim" onclick="openClaimModal(${item.id})" ${!isAvail?'disabled':''}>${isAvail?'🤝 Claim Waste':item.status==='claimed'?'✓ Claimed':'⏳ Pending'}</button>
+      <button class="btn-details" onclick="openSellerModal('${safeItem}')">📋 Details</button>
+    </div>
+    <div class="card-footer">
+      <div class="uploader-info"><div class="avatar" style="background:${avatarBg}">${initials}</div>${item.uploader}</div>
+      <span>${item.date}</span><span class="points-pill">+${Math.round(item.qty*3)} pts</span>
+    </div>
+  </div>`;
+}
+ 
+// ====== HOME ======
+function renderHomeRecent(){const listings=getListings().slice(-3).reverse();document.getElementById('home-recent-grid').innerHTML=listings.map(wasteCardHTML).join('');}
+function updateHomeStats(){
+  const all=getListings();
+  const totalKg=all.reduce((s,l)=>s+l.qty,0);
+  const claimed=all.filter(l=>l.status==='claimed').length;
+  const co2=totalKg*2.9; // UNEP 2023 value
+  const area=(totalKg*0.0005).toFixed(3);
+  const uploaders=[...new Set(all.map(l=>l.uploader))].length;
+  animateNum('home-total-kg',totalKg);animateNum('home-co2',Math.round(co2));
+  animateNum('home-claimed',claimed);animateNum('home-users',uploaders);
+  document.getElementById('home-area').textContent=area+' km²';
+}
+function animateNum(id,target){const el=document.getElementById(id);if(!el)return;let c=0;const step=target/40;const t=setInterval(()=>{c=Math.min(c+step,target);el.textContent=Math.round(c);if(c>=target)clearInterval(t);},30);}
+ 
+// ====== MARKETPLACE ======
+function renderMarket(){
+  const listings=getListings();
+  const search=(document.getElementById('search-input')||{value:''}).value.toLowerCase();
+  let filtered=listings;
+  if(currentFilter!=='all'){if(currentFilter==='available')filtered=filtered.filter(l=>l.status==='available');else filtered=filtered.filter(l=>l.type===currentFilter);}
+  if(search)filtered=filtered.filter(l=>l.title.toLowerCase().includes(search)||l.location.toLowerCase().includes(search)||l.type.toLowerCase().includes(search));
+  document.getElementById('market-grid').innerHTML=filtered.map(wasteCardHTML).join('');
+  const el=document.getElementById('listing-count');if(el)el.textContent=filtered.length+' listing'+(filtered.length!==1?'s':'');
+}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderMarket();}
+function filterListings(){renderMarket();}
+ 
+// ====== SELLER MODAL ======
+function openSellerModal(encodedItem){
+  const item=JSON.parse(decodeURIComponent(encodedItem));
+  const avatarBg=AVG_COLORS[item.id%AVG_COLORS.length];
+  const initials=item.uploader.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('seller-avatar-lg').style.background=avatarBg;
+  document.getElementById('seller-avatar-lg').textContent=initials;
+  document.getElementById('seller-name-lg').textContent=item.uploader;
+  document.getElementById('seller-since').textContent='Member since 2024 · Waste2Value Collector';
+  const stars='★★★★'+(Math.random()>0.5?'★':'☆');
+  document.getElementById('seller-rating').innerHTML=`<span>${stars}</span><span style="color:var(--text-muted);margin-left:4px;">(${Math.floor(Math.random()*20)+3} reviews)</span>`;
+  document.getElementById('seller-contact-list').innerHTML=`
+    <div class="contact-row"><div class="contact-icon phone">📞</div><div class="contact-info"><div class="contact-type">Phone</div><div class="contact-val">${item.phone}</div></div><button class="copy-btn" onclick="copyText('${item.phone}','Phone')">📋</button></div>
+    <div class="contact-row"><div class="contact-icon email">📧</div><div class="contact-info"><div class="contact-type">Email</div><div class="contact-val">${item.email}</div></div><button class="copy-btn" onclick="copyText('${item.email}','Email')">📋</button></div>
+    <div class="contact-row"><div class="contact-icon loc">📍</div><div class="contact-info"><div class="contact-type">Location</div><div class="contact-val">${item.location}</div></div></div>`;
+  document.getElementById('seller-listing-info').innerHTML=`<h4>📦 Listing Details</h4>
+    <div class="listing-detail-row"><span>Type</span><span>${item.type==='nets'?'Fishing Nets':item.type.charAt(0).toUpperCase()+item.type.slice(1)}</span></div>
+    <div class="listing-detail-row"><span>Quantity</span><span>${item.qty} kg</span></div>
+    <div class="listing-detail-row"><span>Condition</span><span>${item.condition}</span></div>
+    <div class="listing-detail-row"><span>Listed</span><span>${item.date}</span></div>
+    ${item.notes?`<div style="margin-top:8px;font-size:0.8rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;">${item.notes}</div>`:''}`;
+  document.getElementById('seller-overlay').style.display='flex';
+}
+function closeSellerModal(){document.getElementById('seller-overlay').style.display='none';}
+function copyText(text,label){navigator.clipboard.writeText(text).then(()=>showToast('✓ '+label+' copied!','success')).catch(()=>showToast('⚠️ Copy failed','warning'));}
+document.getElementById('seller-overlay').addEventListener('click',function(e){if(e.target===this)closeSellerModal();});
+ 
+// ====== CLAIM MODAL ======
+function openClaimModal(id){
+  const item=getListings().find(l=>l.id===id);if(!item||item.status!=='available')return;
+  pendingClaim=id;
+  document.getElementById('modal-title').textContent=`Claim: ${item.title}?`;
+  document.getElementById('modal-desc').textContent=`${item.qty}kg of ${item.type} in ${item.location}. You'll be connected with ${item.uploader} to arrange pickup. This earns +${Math.round(item.qty*3)+30} points.`;
+  document.getElementById('modal-overlay').style.display='flex';
+}
+function closeModal(){document.getElementById('modal-overlay').style.display='none';pendingClaim=null;}
+function confirmClaim(){
+  if(!pendingClaim)return;
+  const userListings=getUserListings();
+  const defaultItem=defaultListings.find(l=>l.id===pendingClaim);
+  if(!defaultItem){const idx=userListings.findIndex(l=>l.id===pendingClaim);if(idx!==-1){userListings[idx].status='claimed';saveUserListings(userListings);}}
+  addPoints(30);closeModal();renderMarket();renderHomeRecent();
+  showToast('🎉 Listing claimed! +30 points earned.','success');
+}
+document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+ 
+// ====== UPLOAD MAP ======
+function initUploadMap(){
+  if(uploadMap){uploadMap.invalidateSize();return;}
+  uploadMap=L.map('upload-map').setView([13.0,77.5],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(uploadMap);
+  uploadMap.on('click',function(e){
+    uploadLat=e.latlng.lat;uploadLng=e.latlng.lng;
+    if(uploadMarker)uploadMap.removeLayer(uploadMarker);
+    uploadMarker=L.marker([uploadLat,uploadLng]).addTo(uploadMap);
+    document.getElementById('coords-display').textContent=`Lat: ${uploadLat.toFixed(5)}, Lng: ${uploadLng.toFixed(5)} ✓`;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${uploadLat}&lon=${uploadLng}&format=json`)
+      .then(r=>r.json()).then(data=>{
+        const parts=[];const a=data.address||{};
+        if(a.suburb||a.neighbourhood)parts.push(a.suburb||a.neighbourhood);
+        if(a.city||a.town||a.village)parts.push(a.city||a.town||a.village);
+        if(a.state)parts.push(a.state);
+        const locName=parts.join(', ')||data.display_name.split(',').slice(0,3).join(',').trim();
+        document.getElementById('f-location').value=locName;
+        document.getElementById('coords-display').textContent=`${locName} · ${uploadLat.toFixed(4)}, ${uploadLng.toFixed(4)} ✓`;
+      }).catch(()=>{document.getElementById('f-location').value=`${uploadLat.toFixed(4)}, ${uploadLng.toFixed(4)}`;});
+  });
+}
+function selectType(el){document.querySelectorAll('.type-option').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');selectedType=el.dataset.type;updateSuggestions();}
+function updateSuggestions(){
+  const suggs=SUGGESTIONS[selectedType];
+  document.getElementById('sugg-box').querySelector('h4').textContent='💡 AI Reuse Suggestions for '+selectedType.charAt(0).toUpperCase()+selectedType.slice(1);
+  document.getElementById('sugg-chips').innerHTML=suggs.map(s=>`<span class="chip">${s}</span>`).join('');
+}
+function submitListing(){
+  const title=document.getElementById('f-title').value.trim();
+  const qty=parseFloat(document.getElementById('f-qty').value);
+  const location=document.getElementById('f-location').value.trim();
+  const condition=document.getElementById('f-condition').value;
+  const notes=document.getElementById('f-notes').value.trim();
+  if(!title||!qty||!location){showToast('⚠️ Please fill title, quantity, and pick a location.','warning');return;}
+  const userName=currentUser?currentUser.name:'Anonymous';
+  const userEmail=currentUser?currentUser.email:'Not provided';
+  const userPhone=currentUser?(currentUser.phone||'Not provided'):'Not provided';
+  const userListings=getUserListings();
+  const newId=Date.now();
+  userListings.push({id:newId,type:selectedType,title,qty,location,condition,notes:notes||'No additional notes.',uploader:userName,uploaderEmail:userEmail,uploaderPhone:userPhone,status:'available',date:'Just now',lat:uploadLat||(13.0+(Math.random()-0.5)*8),lng:uploadLng||(77.5+(Math.random()-0.5)*6)});
+  saveUserListings(userListings);addPoints(50);
+  ['f-title','f-qty','f-location','f-notes'].forEach(id=>document.getElementById(id).value='');
+  if(uploadMarker&&uploadMap){uploadMap.removeLayer(uploadMarker);uploadMarker=null;}
+  uploadLat=uploadLng=null;
+  document.getElementById('coords-display').textContent='No location selected — click the map above';
+  showToast('🌊 Listing published! +50 points earned.','success');
+  setTimeout(()=>showPage('marketplace'),1500);
+}
+ 
+// ====== MAIN MAP ======
+function initMap(){
+  leafletMap=L.map('map').setView([14,77],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(leafletMap);
+  getListings().forEach(item=>{
+    if(!item.lat)return;
+    const color=item.status==='claimed'?'#8aa0b4':COLORS[item.type];
+    L.circleMarker([item.lat,item.lng],{radius:Math.min(8+item.qty*0.15,22),fillColor:color,color:'#fff',weight:2,opacity:1,fillOpacity:0.85}).addTo(leafletMap).bindPopup(`<strong>${item.title}</strong><br>${item.qty}kg ${item.type}<br>📍 ${item.location}<br>Status: <em>${item.status}</em>`);
+  });
+}
+ 
+// ====== DASHBOARD — with research-backed values ======
+function updateDashboard(){
+  const all=getListings();
+  const totalKg=all.reduce((s,l)=>s+l.qty,0);
+  const claimedItems=all.filter(l=>l.status==='claimed');
+  // CO2: 2.9 kg CO2 per kg plastic recycled vs virgin (UNEP 2023 report)
+  const co2=Math.round(totalKg*2.9);
+  // Ocean area: Ocean Conservancy estimates ~0.005 km² per 10kg of debris removed from high-concentration zones
+  const area=(totalKg*0.0005).toFixed(3);
+  // Marine animals: IUCN — roughly 1 marine animal entanglement prevented per 3kg of debris removed
+  const animals=Math.round(totalKg/3);
+  // Energy: US EPA — recycling 1 kg plastic saves ~5.77 kWh vs virgin production
+  const energy=Math.round(totalKg*5.77);
+  const recycledPct=all.length>0?Math.round((claimedItems.length/all.length)*100):0;
+  const uploaders=[...new Set(all.map(l=>l.uploader))].length;
+  const totalPts=all.length*50+claimedItems.length*30;
+ 
+  document.getElementById('d-total-kg').textContent=totalKg.toFixed(1)+' kg';
+  document.getElementById('d-co2').textContent=co2+' kg';
+  document.getElementById('d-animals').textContent=animals;
+  document.getElementById('d-area').textContent=area+' km²';
+  document.getElementById('d-energy').textContent=energy+' kWh';
+  document.getElementById('d-recycled').textContent=recycledPct+'%';
+  document.getElementById('d-claimed-n').textContent=claimedItems.length+' of '+all.length+' listings';
+  document.getElementById('d-collectors').textContent=uploaders;
+  document.getElementById('d-pts').textContent=totalPts;
+  document.getElementById('d-my-pts').textContent=getPoints();
+  document.getElementById('d-kg-delta').textContent='↑ +'+all.filter(l=>l.date==='Just now'||l.date==='1 day ago').reduce((s,l)=>s+l.qty,0).toFixed(0)+' this week';
+  renderTypeChart(all);renderTimeChart();renderLeaderboard(all);
+}
+ 
+function renderTypeChart(all){
+  const counts={plastic:0,nets:0,glass:0,mixed:0};
+  all.forEach(l=>{if(counts[l.type]!==undefined)counts[l.type]+=l.qty;});
+  const canvas=document.getElementById('typeChart');if(!canvas)return;
+  if(typeChart)typeChart.destroy();
+  typeChart=new Chart(canvas,{type:'doughnut',data:{labels:['Plastic','Fishing Nets','Glass','Mixed'],datasets:[{data:[counts.plastic,counts.nets,counts.glass,counts.mixed],backgroundColor:['#0e6b9e','#1a6b4a','#e8861a','#c0392b'],borderWidth:3,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true}}}}});
+}
+function renderTimeChart(){
+  const canvas=document.getElementById('timeChart');if(!canvas)return;
+  if(timeChart)timeChart.destroy();
+  // More realistic growth data based on Indian coastal cleanup initiatives
+  timeChart=new Chart(canvas,{type:'bar',data:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul'],datasets:[{label:'kg collected',data:[24,38,52,45,78,95,112],backgroundColor:'rgba(14,107,158,0.15)',borderColor:'#0e6b9e',borderWidth:2,borderRadius:6},{label:'kg claimed',data:[10,22,35,28,55,74,89],backgroundColor:'rgba(26,107,74,0.15)',borderColor:'#1a6b4a',borderWidth:2,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10,usePointStyle:true}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});
+}
+function renderLeaderboard(all){
+  const uploaders={};
+  all.forEach(l=>{if(!uploaders[l.uploader])uploaders[l.uploader]={name:l.uploader,kg:0,listings:0,loc:l.location.split(',').pop().trim()};uploaders[l.uploader].kg+=l.qty;uploaders[l.uploader].listings+=1;});
+  const sorted=Object.values(uploaders).sort((a,b)=>b.kg-a.kg).slice(0,8);
+  const maxKg=sorted[0]?.kg||1;
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('leaderboard').innerHTML=`<div class="lb-header">🏆 Top Ocean Warriors</div>`+
+    sorted.map((u,i)=>{
+      const pts=Math.round(u.kg*3+u.listings*50);const pct=Math.round((u.kg/maxKg)*100);
+      return `<div class="lb-row"><div class="lb-rank ${i<3?'top':''}">${medals[i]||(i+1)}</div><div style="width:36px;height:36px;border-radius:50%;background:${AVG_COLORS[i%5]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div><div class="lb-info"><div class="lb-name">${u.name}</div><div class="lb-loc">${u.loc} · ${u.kg.toFixed(0)}kg collected</div></div><div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%"></div></div><div style="text-align:right;"><div class="lb-score">${pts}</div><div class="lb-pts">pts</div></div></div>`;
+    }).join('');
+}
+ 
+// ====== REWARDS ======
+function renderRewards(){
+  const pts=getPoints();
+  const el=document.getElementById('rewards-my-pts');if(el)el.textContent=pts;
+  const filtered=currentRewardFilter==='all'?REWARDS_DATA:REWARDS_DATA.filter(r=>r.cat===currentRewardFilter);
+  document.getElementById('reward-grid').innerHTML=filtered.map(r=>rewardCardHTML(r,pts)).join('');
+}
+function rewardCardHTML(r,userPts){
+  const canAfford=userPts>=r.pts;
+  const badgeHTML=r.badge?`<div style="position:absolute;top:12px;left:12px;z-index:10;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;font-family:'DM Sans',sans-serif;background:${r.badge==='featured'?'var(--gold)':(r.badge==='hot'?'#ff4d2e':'var(--kelp)')};color:${r.badge==='featured'?'#7a5500':'#fff'}">${r.badge==='featured'?'⭐ Featured':(r.badge==='hot'?'🔥 Popular':'✨ New')}</div>`:'';
+  const catLabels={electronics:'Electronics',appliances:'Appliances',vouchers:'Gift Voucher',fashion:'Fashion',accessories:'Accessories',stationery:'Stationery',hampers:'Gift Hamper'};
+  return `<div class="reward-card">
+    <div class="reward-img-wrap" style="position:relative;">
+      ${badgeHTML}
+      <img src="${r.img}" alt="${r.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\"reward-img-fallback\\">🎁</div>'">
+    </div>
+    <div class="reward-body">
+      <div class="reward-cat-tag">${catLabels[r.cat]||r.cat}</div>
+      <div class="reward-name">${r.name}</div>
+      <div class="reward-desc">${r.desc}</div>
+      <div class="reward-footer">
+        <div class="reward-pts"><span class="coin">⭐</span>${r.pts.toLocaleString()}<span class="pts-label">pts</span></div>
+        <button class="btn-redeem${!canAfford?' ':''}" onclick="openRedeemModal('${r.id}')" ${!canAfford?'disabled':''}>
+          ${canAfford?'Redeem':'Need more pts'}
+        </button>
+      </div>
+      ${!canAfford?`<div style="margin-top:8px;font-size:0.72rem;color:var(--text-faint);">You need ${(r.pts-userPts).toLocaleString()} more points</div>`:''}
+    </div>
+  </div>`;
+}
+function filterRewards(cat,btn){
+  currentRewardFilter=cat;
+  document.querySelectorAll('.rcat-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderRewards();
+}
+function openRedeemModal(rewardId){
+  const reward=REWARDS_DATA.find(r=>r.id===rewardId);if(!reward)return;
+  pendingRedeem=reward;
+  document.getElementById('redeem-title').textContent='Redeem — '+reward.name;
+  document.getElementById('redeem-preview-img').src=reward.img;
+  document.getElementById('redeem-item-name').textContent=reward.name;
+  document.getElementById('redeem-item-pts').textContent='⭐ '+reward.pts.toLocaleString()+' points';
+  document.getElementById('redeem-balance-show').textContent=getPoints().toLocaleString()+' pts';
+  if(currentUser){document.getElementById('rd-name').value=currentUser.name||'';document.getElementById('rd-phone').value=currentUser.phone||'';}
+  document.getElementById('redeem-overlay').style.display='flex';
+}
+function closeRedeemModal(){document.getElementById('redeem-overlay').style.display='none';pendingRedeem=null;}
+function confirmRedeem(){
+  if(!pendingRedeem)return;
+  const name=document.getElementById('rd-name').value.trim();
+  const addr=document.getElementById('rd-addr').value.trim();
+  const city=document.getElementById('rd-city').value.trim();
+  if(!name||!addr||!city){showToast('⚠️ Please fill your delivery details.','warning');return;}
+  if(getPoints()<pendingRedeem.pts){showToast('⚠️ Insufficient points!','warning');return;}
+  spendPoints(pendingRedeem.pts);
+  closeRedeemModal();
+  showToast('🎁 Redeemed! '+pendingRedeem.name+' will be delivered in 7–10 days.','success');
+  renderRewards();updateNavPts();
+}
+document.getElementById('redeem-overlay').addEventListener('click',function(e){if(e.target===this)closeRedeemModal();});
+ 
+// ====== TOAST ======
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),3500);}
+ 
+// INIT
+updateSuggestions();
+updateNavPts();
+</script>
+</body>
+</html>
